@@ -2,7 +2,6 @@
 <html>
 <head>
   <title>Chat App</title>
-  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -13,7 +12,17 @@
   <input id="loginUser" placeholder="Username">
   <input id="loginPass" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
+  <button onclick="showSignup()">Signup</button>
   <p id="loginError" style="color:red;"></p>
+</div>
+
+<!-- SIGNUP -->
+<div id="signupBox" style="display:none;">
+  <input id="signupUser" placeholder="New Username">
+  <input id="signupPass" type="password" placeholder="New Password">
+  <button onclick="signup()">Create Account</button>
+  <button onclick="showLogin()">Back</button>
+  <p id="signupError" style="color:red;"></p>
 </div>
 
 <!-- CHAT -->

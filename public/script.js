@@ -1,15 +1,37 @@
 const socket = io();
 let username = "";
 
-// time formatter
-function formatTimeISO(iso) {
-  return new Date(iso).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+// 🔁 UI SWITCH
+function showSignup() {
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("signupBox").style.display = "block";
 }
 
-// LOGIN
+function showLogin() {
+  document.getElementById("signupBox").style.display = "none";
+  document.getElementById("loginBox").style.display = "block";
+}
+
+// 📝 SIGNUP
+function signup() {
+  const user = document.getElementById("signupUser").value.trim();
+  const pass = document.getElementById("signupPass").value.trim();
+
+  if (!user || !pass) return;
+
+  socket.emit("signup", { user, pass });
+}
+
+socket.on("signup success", (msg) => {
+  alert(msg);
+  showLogin();
+});
+
+socket.on("signup error", (msg) => {
+  document.getElementById("signupError").textContent = msg;
+});
+
+// 🔑 LOGIN
 function login() {
   const user = document.getElementById("loginUser").value.trim();
   const pass = document.getElementById("loginPass").value.trim();
@@ -19,20 +41,19 @@ function login() {
   socket.emit("login", { user, pass });
 }
 
-// LOGIN SUCCESS
 socket.on("login success", (user) => {
   username = user;
   document.getElementById("loginBox").style.display = "none";
+  document.getElementById("signupBox").style.display = "none";
   document.getElementById("chatBox").style.display = "block";
   document.getElementById("loginError").textContent = "";
 });
 
-// LOGIN ERROR
 socket.on("login error", (msg) => {
   document.getElementById("loginError").textContent = msg;
 });
 
-// SEND MESSAGE
+// 💬 CHAT
 function sendMessage() {
   const input = document.getElementById("messageInput");
   if (!input.value.trim()) return;
@@ -45,29 +66,20 @@ function sendMessage() {
   input.value = "";
 }
 
-// RECEIVE CHAT MESSAGE
 socket.on("chat message", (data) => {
   const li = document.createElement("li");
-  li.textContent = `[${formatTimeISO(data.time)}] ${data.user}: ${data.text}`;
-
-  if (data.user === username) {
-    li.style.background = "#DCF8C6";
-    li.style.textAlign = "right";
-  }
-
+  li.textContent = `${data.user}: ${data.text}`;
   document.getElementById("messages").appendChild(li);
 });
 
-// SYSTEM MESSAGE
 socket.on("system message", (data) => {
   const li = document.createElement("li");
-  li.textContent = `[${formatTimeISO(data.time)}] ${data.text}`;
+  li.textContent = data.text;
   li.style.fontStyle = "italic";
-  li.style.color = "gray";
   document.getElementById("messages").appendChild(li);
 });
 
-// LOGOUT
+// 🚪 LOGOUT
 function logout() {
   socket.emit("logout");
   username = "";
