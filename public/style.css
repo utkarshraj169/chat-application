@@ -1,0 +1,12 @@
+body {
+  font-family: Arial;
+  text-align: center;
+}
+
+#messages {
+  list-style: none;
+  height: 300px;
+  overflow-y: scroll;
+  border: 1px solid #ccc;
+  padding: 10px;
+}
