@@ -1,90 +1,124 @@
 const socket = io();
 let username = "";
+let privateTo = null;
 
-// 🔁 UI SWITCH
+// -------- UI SWITCH --------
 function showSignup() {
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("signupBox").style.display = "block";
+  loginBox.style.display = "none";
+  signupBox.style.display = "block";
 }
-
 function showLogin() {
-  document.getElementById("signupBox").style.display = "none";
-  document.getElementById("loginBox").style.display = "block";
+  signupBox.style.display = "none";
+  forgotBox.style.display = "none";
+  loginBox.style.display = "block";
+}
+function showForgot() {
+  loginBox.style.display = "none";
+  forgotBox.style.display = "block";
 }
 
-// 📝 SIGNUP
+// -------- SIGNUP --------
 function signup() {
-  const user = document.getElementById("signupUser").value.trim();
-  const pass = document.getElementById("signupPass").value.trim();
-
-  if (!user || !pass) return;
-
-  socket.emit("signup", { user, pass });
+  socket.emit("signup", {
+    user: signupUser.value,
+    pass: signupPass.value,
+  });
 }
-
 socket.on("signup success", (msg) => {
   alert(msg);
   showLogin();
 });
+socket.on("signup error", (msg) => signupError.textContent = msg);
 
-socket.on("signup error", (msg) => {
-  document.getElementById("signupError").textContent = msg;
-});
-
-// 🔑 LOGIN
+// -------- LOGIN --------
 function login() {
-  const user = document.getElementById("loginUser").value.trim();
-  const pass = document.getElementById("loginPass").value.trim();
-
-  if (!user || !pass) return;
-
-  socket.emit("login", { user, pass });
+  socket.emit("login", {
+    user: loginUser.value,
+    pass: loginPass.value,
+  });
 }
-
 socket.on("login success", (user) => {
   username = user;
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("signupBox").style.display = "none";
-  document.getElementById("chatBox").style.display = "block";
-  document.getElementById("loginError").textContent = "";
+  loginBox.style.display = "none";
+  signupBox.style.display = "none";
+  forgotBox.style.display = "none";
+  chatBox.style.display = "block";
 });
+socket.on("login error", (msg) => loginError.textContent = msg);
 
-socket.on("login error", (msg) => {
-  document.getElementById("loginError").textContent = msg;
-});
-
-// 💬 CHAT
+// -------- PUBLIC CHAT --------
 function sendMessage() {
-  const input = document.getElementById("messageInput");
-  if (!input.value.trim()) return;
+  if (!messageInput.value) return;
 
-  socket.emit("chat message", {
-    user: username,
-    text: input.value
-  });
-
-  input.value = "";
+  if (privateTo) {
+    socket.emit("private message", {
+      to: privateTo,
+      from: username,
+      text: messageInput.value,
+    });
+  } else {
+    socket.emit("chat message", {
+      user: username,
+      text: messageInput.value,
+    });
+  }
+  messageInput.value = "";
 }
 
-socket.on("chat message", (data) => {
+socket.on("chat message", (d) => {
   const li = document.createElement("li");
-  li.textContent = `${data.user}: ${data.text}`;
-  document.getElementById("messages").appendChild(li);
+  li.textContent = `${d.user}: ${d.text}`;
+  messages.appendChild(li);
 });
 
-socket.on("system message", (data) => {
+// -------- PRIVATE CHAT --------
+socket.on("private message", (d) => {
+  alert(`Private from ${d.from}: ${d.text}`);
+});
+
+// -------- ONLINE USERS --------
+socket.on("online users", (list) => {
+  users.innerHTML = "";
+  list.forEach((u) => {
+    const li = document.createElement("li");
+    li.textContent = u;
+    li.onclick = () => {
+      privateTo = u;
+      alert("Private chat with " + u);
+    };
+    users.appendChild(li);
+  });
+});
+
+// -------- SYSTEM --------
+socket.on("system message", (d) => {
   const li = document.createElement("li");
-  li.textContent = data.text;
+  li.textContent = d.text;
   li.style.fontStyle = "italic";
-  document.getElementById("messages").appendChild(li);
+  messages.appendChild(li);
 });
 
-// 🚪 LOGOUT
+// -------- LOGOUT --------
 function logout() {
   socket.emit("logout");
-  username = "";
-
-  document.getElementById("chatBox").style.display = "none";
-  document.getElementById("loginBox").style.display = "block";
-  document.getElementById("messages").innerHTML = "";
+  chatBox.style.display = "none";
+  loginBox.style.display = "block";
+  messages.innerHTML = "";
+  privateTo = null;
 }
+
+// -------- FORGOT PASSWORD --------
+function forgot() {
+  socket.emit("forgot password", forgotUser.value);
+}
+socket.on("reset token", (t) => {
+  forgotMsg.textContent = "Reset Token: " + t;
+});
+function resetPass() {
+  socket.emit("reset password", {
+    token: resetToken.value,
+    newPass: newPass.value,
+  });
+}
+socket.on("reset success", (m) => alert(m));
+socket.on("reset error", (m) => alert(m));

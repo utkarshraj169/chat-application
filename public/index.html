@@ -13,6 +13,7 @@
   <input id="loginPass" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
   <button onclick="showSignup()">Signup</button>
+  <button onclick="showForgot()">Forgot Password</button>
   <p id="loginError" style="color:red;"></p>
 </div>
 
@@ -25,9 +26,24 @@
   <p id="signupError" style="color:red;"></p>
 </div>
 
+<!-- FORGOT -->
+<div id="forgotBox" style="display:none;">
+  <input id="forgotUser" placeholder="Username">
+  <button onclick="forgot()">Get Reset Token</button>
+  <input id="resetToken" placeholder="Token">
+  <input id="newPass" type="password" placeholder="New Password">
+  <button onclick="resetPass()">Reset Password</button>
+  <p id="forgotMsg"></p>
+  <button onclick="showLogin()">Back</button>
+</div>
+
 <!-- CHAT -->
 <div id="chatBox" style="display:none;">
-  <button onclick="logout()" style="float:right;">Logout</button>
+  <button onclick="logout()">Logout</button>
+
+  <h4>Online Users</h4>
+  <ul id="users"></ul>
+
   <ul id="messages"></ul>
   <input id="messageInput" placeholder="Type message...">
   <button onclick="sendMessage()">Send</button>
