@@ -1,28 +1,41 @@
 const socket = io();
 let username = "";
 
-// format time
+// time formatter
 function formatTimeISO(iso) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
-// join chat
-function setUsername() {
-  const input = document.getElementById("usernameInput");
-  if (input.value.trim() === "") return;
+// LOGIN
+function login() {
+  const user = document.getElementById("loginUser").value.trim();
+  const pass = document.getElementById("loginPass").value.trim();
 
-  username = input.value;
-  socket.emit("join", username);
+  if (!user || !pass) return;
 
-  document.getElementById("userBox").style.display = "none";
+  socket.emit("login", { user, pass });
+}
+
+// LOGIN SUCCESS
+socket.on("login success", (user) => {
+  username = user;
+  document.getElementById("loginBox").style.display = "none";
   document.getElementById("chatBox").style.display = "block";
-}
+  document.getElementById("loginError").textContent = "";
+});
 
-// send message
+// LOGIN ERROR
+socket.on("login error", (msg) => {
+  document.getElementById("loginError").textContent = msg;
+});
+
+// SEND MESSAGE
 function sendMessage() {
   const input = document.getElementById("messageInput");
-  if (input.value.trim() === "") return;
+  if (!input.value.trim()) return;
 
   socket.emit("chat message", {
     user: username,
@@ -32,14 +45,20 @@ function sendMessage() {
   input.value = "";
 }
 
-// RECEIVE CHAT MESSAGE ✅
+// RECEIVE CHAT MESSAGE
 socket.on("chat message", (data) => {
   const li = document.createElement("li");
   li.textContent = `[${formatTimeISO(data.time)}] ${data.user}: ${data.text}`;
+
+  if (data.user === username) {
+    li.style.background = "#DCF8C6";
+    li.style.textAlign = "right";
+  }
+
   document.getElementById("messages").appendChild(li);
 });
 
-// RECEIVE SYSTEM MESSAGE ✅
+// SYSTEM MESSAGE
 socket.on("system message", (data) => {
   const li = document.createElement("li");
   li.textContent = `[${formatTimeISO(data.time)}] ${data.text}`;
@@ -48,3 +67,12 @@ socket.on("system message", (data) => {
   document.getElementById("messages").appendChild(li);
 });
 
+// LOGOUT
+function logout() {
+  socket.emit("logout");
+  username = "";
+
+  document.getElementById("chatBox").style.display = "none";
+  document.getElementById("loginBox").style.display = "block";
+  document.getElementById("messages").innerHTML = "";
+}

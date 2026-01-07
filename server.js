@@ -10,14 +10,14 @@ const io = new Server(server);
 // serve frontend
 app.use(express.static(path.join(__dirname, "public")));
 
-// 🔐 SIMPLE USER DATABASE (for login)
+// 🔐 USERS (LOGIN CREDENTIALS)
 const users = {
   ka: "123",
   raj: "123",
   admin: "admin"
 };
 
-// 👥 TRACK ACTIVE USERS (to prevent duplicate usernames)
+// 👥 ACTIVE USERS (PREVENT DUPLICATES)
 const activeUsers = new Set();
 
 io.on("connection", (socket) => {
@@ -25,19 +25,16 @@ io.on("connection", (socket) => {
 
   // 🔑 LOGIN
   socket.on("login", ({ user, pass }) => {
-    // check credentials
     if (!users[user] || users[user] !== pass) {
       socket.emit("login error", "Invalid username or password");
       return;
     }
 
-    // prevent duplicate username
     if (activeUsers.has(user)) {
       socket.emit("login error", "Username already in use");
       return;
     }
 
-    // success
     socket.username = user;
     activeUsers.add(user);
 
@@ -57,7 +54,22 @@ io.on("connection", (socket) => {
     io.emit("chat message", data);
   });
 
-  // ❌ DISCONNECT
+  // 🚪 LOGOUT
+  socket.on("logout", () => {
+    if (socket.username) {
+      activeUsers.delete(socket.username);
+
+      socket.broadcast.emit("system message", {
+        text: `${socket.username} left the chat`,
+        time: new Date().toISOString()
+      });
+
+      console.log(`User logged out: ${socket.username}`);
+      socket.username = null;
+    }
+  });
+
+  // ❌ DISCONNECT (browser closed)
   socket.on("disconnect", () => {
     if (socket.username) {
       activeUsers.delete(socket.username);
@@ -72,7 +84,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// 🌍 DEPLOYMENT-READY PORT
+// 🌍 DEPLOYMENT PORT
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
