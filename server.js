@@ -1,3 +1,5 @@
+require("dotenv").config(); // safe locally, ignored on Render
+
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -11,38 +13,34 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, "public")));
 
 // ================= MONGODB =================
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("✅ MongoDB connected");
+let Message = null;
 
-    // 🔥 FORCE TEST INSERT (IMPORTANT)
-    testInsert();
-  })
-  .catch((err) => console.error("❌ MongoDB error:", err));
+if (process.env.MONGO_URI) {
+  mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => {
+      console.log("✅ MongoDB connected");
 
-const messageSchema = new mongoose.Schema({
-  user: String,
-  text: String,
-  time: String,
-});
+      const messageSchema = new mongoose.Schema({
+        user: String,
+        text: String,
+        time: String,
+      });
 
-const Message = mongoose.model("Message", messageSchema);
+      Message = mongoose.model("Message", messageSchema);
 
-// 🔥 TEST INSERT FUNCTION
-async function testInsert() {
-  try {
-    const testMsg = new Message({
-      user: "system",
-      text: "MongoDB test message",
-      time: new Date().toISOString(),
+      // 🔥 OPTIONAL: test insert (runs only once)
+      Message.create({
+        user: "system",
+        text: "MongoDB test message",
+        time: new Date().toISOString(),
+      }).then(() => console.log("✅ Test message saved"));
+    })
+    .catch((err) => {
+      console.error("❌ MongoDB error:", err.message);
     });
-
-    await testMsg.save();
-    console.log("✅ Test message saved to MongoDB");
-  } catch (err) {
-    console.error("❌ Test insert failed:", err);
-  }
+} else {
+  console.warn("⚠️ MONGO_URI not set — running without database");
 }
 
 // ================= SOCKET =================
@@ -52,23 +50,26 @@ io.on("connection", (socket) => {
   socket.on("login", async (username) => {
     socket.username = username;
 
-    const history = await Message.find().sort({ _id: 1 });
-    socket.emit("chat history", history);
+    if (Message) {
+      const history = await Message.find().sort({ _id: 1 });
+      socket.emit("chat history", history);
+    }
   });
 
   socket.on("chat message", async (data) => {
     console.log("📩 Message received:", data);
 
-    const msg = new Message({
-      user: data.user,
-      text: data.text,
-      time: new Date().toISOString(),
-    });
-
-    await msg.save();
-    console.log("✅ Message saved");
-
-    io.emit("chat message", msg);
+    if (Message) {
+      const msg = new Message({
+        user: data.user,
+        text: data.text,
+        time: new Date().toISOString(),
+      });
+      await msg.save();
+      io.emit("chat message", msg);
+    } else {
+      io.emit("chat message", data); // fallback if DB off
+    }
   });
 });
 
