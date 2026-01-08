@@ -8,16 +8,19 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ================= STATIC FILES =================
 app.use(express.static(path.join(__dirname, "public")));
 
 // ================= MONGODB =================
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("MongoDB error:", err));
+  .then(() => {
+    console.log("✅ MongoDB connected");
 
-// Message schema
+    // 🔥 FORCE TEST INSERT (IMPORTANT)
+    testInsert();
+  })
+  .catch((err) => console.error("❌ MongoDB error:", err));
+
 const messageSchema = new mongoose.Schema({
   user: String,
   text: String,
@@ -26,47 +29,50 @@ const messageSchema = new mongoose.Schema({
 
 const Message = mongoose.model("Message", messageSchema);
 
-// ================= USERS =================
-const onlineUsers = new Set();
+// 🔥 TEST INSERT FUNCTION
+async function testInsert() {
+  try {
+    const testMsg = new Message({
+      user: "system",
+      text: "MongoDB test message",
+      time: new Date().toISOString(),
+    });
+
+    await testMsg.save();
+    console.log("✅ Test message saved to MongoDB");
+  } catch (err) {
+    console.error("❌ Test insert failed:", err);
+  }
+}
 
 // ================= SOCKET =================
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  // LOGIN
   socket.on("login", async (username) => {
     socket.username = username;
-    onlineUsers.add(username);
 
-    io.emit("online users", Array.from(onlineUsers));
-
-    // 🔥 SEND CHAT HISTORY
     const history = await Message.find().sort({ _id: 1 });
     socket.emit("chat history", history);
   });
 
-  // GROUP CHAT MESSAGE
   socket.on("chat message", async (data) => {
+    console.log("📩 Message received:", data);
+
     const msg = new Message({
       user: data.user,
       text: data.text,
       time: new Date().toISOString(),
     });
 
-    await msg.save(); // 👈 THIS CREATES chatdb + messages
-    io.emit("chat message", msg);
-  });
+    await msg.save();
+    console.log("✅ Message saved");
 
-  // LOGOUT / DISCONNECT
-  socket.on("disconnect", () => {
-    if (socket.username) {
-      onlineUsers.delete(socket.username);
-      io.emit("online users", Array.from(onlineUsers));
-    }
+    io.emit("chat message", msg);
   });
 });
 
-// ================= START SERVER =================
+// ================= START =================
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log("Server running on port", PORT);
