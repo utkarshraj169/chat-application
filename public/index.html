@@ -2,6 +2,19 @@
 <html>
 <head>
   <title>Chat App</title>
+  <link rel="icon" href="/favicon.ico">
+
+  <style>
+    #mode {
+      font-weight: bold;
+      color: blue;
+      margin: 8px 0;
+    }
+    #users li {
+      cursor: pointer;
+      color: green;
+    }
+  </style>
 </head>
 <body>
 
@@ -26,10 +39,10 @@
   <p id="signupError" style="color:red;"></p>
 </div>
 
-<!-- FORGOT -->
+<!-- FORGOT PASSWORD -->
 <div id="forgotBox" style="display:none;">
   <input id="forgotUser" placeholder="Username">
-  <button onclick="forgot()">Get Reset Token</button>
+  <button onclick="forgot()">Get Reset Token</button><br><br>
   <input id="resetToken" placeholder="Token">
   <input id="newPass" type="password" placeholder="New Password">
   <button onclick="resetPass()">Reset Password</button>
@@ -39,17 +52,25 @@
 
 <!-- CHAT -->
 <div id="chatBox" style="display:none;">
+
   <button onclick="logout()">Logout</button>
+  <button onclick="backToGroup()">Back to Group Chat</button>
+
+  <p id="mode">Mode: Group Chat</p>
 
   <h4>Online Users</h4>
   <ul id="users"></ul>
 
   <ul id="messages"></ul>
+
   <input id="messageInput" placeholder="Type message...">
   <button onclick="sendMessage()">Send</button>
 </div>
 
+
+
 <script src="/socket.io/socket.io.js"></script>
-<script src="script.js"></script>
+<script src="script.js?v=2"></script>
+
 </body>
 </html>
