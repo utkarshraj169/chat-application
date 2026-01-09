@@ -1,99 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Chat Application</title>
-
-  <!-- Optional favicon (prevents console 404) -->
-  <link rel="icon" href="data:," />
 
   <style>
     body {
       font-family: Arial, sans-serif;
+      margin: 20px;
     }
 
-    #chatBox {
+    #chatBox, #signupBox {
       display: none;
+    }
+
+    #mode {
+      font-weight: bold;
+      color: blue;
+      margin: 10px 0;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    #messages {
+      border: 1px solid #ccc;
+      height: 250px;
+      overflow-y: auto;
+      padding: 10px;
+      margin-bottom: 10px;
     }
 
     #usersList li {
       cursor: pointer;
-      color: blue;
-      margin-bottom: 5px;
+      color: green;
     }
 
     #usersList li:hover {
       text-decoration: underline;
     }
 
-    #mode {
-      font-weight: bold;
-      color: green;
-      margin: 10px 0;
+    input {
+      margin: 5px 0;
     }
 
-    #messages li {
-      margin-bottom: 4px;
+    .error {
+      color: red;
     }
   </style>
 </head>
 <body>
 
-  <h2>Chat Application</h2>
+<h2>💬 Chat Application</h2>
 
-  <!-- LOGIN -->
-  <div id="loginBox">
-    <input id="loginUser" placeholder="Username" />
-    <input id="loginPass" type="password" placeholder="Password" />
-    <button onclick="login()">Login</button>
-    <button onclick="showSignup()">Signup</button>
-    <button onclick="showForgot()">Forgot Password</button>
-    <p id="loginError" style="color:red;"></p>
-  </div>
+<!-- ================= LOGIN ================= -->
+<div id="loginBox">
+  <h3>Login</h3>
+  <input id="loginUser" placeholder="Username"><br>
+  <input id="loginPass" type="password" placeholder="Password"><br>
 
-  <!-- SIGNUP -->
-  <div id="signupBox" style="display:none;">
-    <input id="signupUser" placeholder="New Username" />
-    <input id="signupPass" type="password" placeholder="New Password" />
-    <button onclick="signup()">Create Account</button>
-    <button onclick="showLogin()">Back</button>
-    <p id="signupError" style="color:red;"></p>
-  </div>
+  <button onclick="login()">Login</button>
+  <button onclick="showSignup()">Signup</button>
 
-  <!-- FORGOT PASSWORD -->
-  <div id="forgotBox" style="display:none;">
-    <input id="forgotUser" placeholder="Username" />
-    <button onclick="forgot()">Get Reset Token</button>
-    <br /><br />
-    <input id="resetToken" placeholder="Token" />
-    <input id="newPass" type="password" placeholder="New Password" />
-    <button onclick="resetPass()">Reset Password</button>
-    <p id="forgotMsg"></p>
-    <button onclick="showLogin()">Back</button>
-  </div>
+  <p id="loginError" class="error"></p>
+</div>
 
-  <!-- CHAT -->
-  <div id="chatBox">
+<!-- ================= SIGNUP ================= -->
+<div id="signupBox">
+  <h3>Signup</h3>
+  <input id="signupUser" placeholder="Username"><br>
+  <input id="signupPass" type="password" placeholder="Password"><br>
 
-    <button onclick="logout()">Logout</button>
-    <button onclick="backToGroup()">Group Chat</button>
+  <button onclick="signup()">Create Account</button>
+  <button onclick="showLogin()">Back to Login</button>
 
-    <p id="mode">Mode: Group Chat</p>
+  <p id="signupError" class="error"></p>
+</div>
 
-    <h4>Online Users</h4>
-    <ul id="usersList"></ul>
+<!-- ================= CHAT ================= -->
+<div id="chatBox">
 
-    <h4>Messages</h4>
-    <ul id="messages"></ul>
+  <button onclick="logout()">Logout</button>
+  <button onclick="backToGroup()">Group Chat</button>
 
-    <input id="messageInput" placeholder="Type message..." />
-    <button onclick="sendMessage()">Send</button>
+  <p id="mode">Group Chat</p>
 
-  </div>
+  <h4>👥 Online Users</h4>
+  <ul id="usersList"></ul>
 
-  <!-- SOCKET.IO -->
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="script.js"></script>
+  <h4>💬 Messages</h4>
+  <ul id="messages"></ul>
+
+  <input id="messageInput" placeholder="Type message...">
+  <button onclick="sendMessage()">Send</button>
+
+</div>
+
+<!-- ================= SCRIPTS ================= -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
 
 </body>
 </html>
