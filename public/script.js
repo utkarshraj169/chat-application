@@ -1,159 +1,195 @@
-// ================= SOCKET =================
 const socket = io();
 
 // ================= DOM =================
 const loginBox = document.getElementById("loginBox");
 const signupBox = document.getElementById("signupBox");
+const forgotBox = document.getElementById("forgotBox");
 const chatBox = document.getElementById("chatBox");
 
 const loginUser = document.getElementById("loginUser");
 const loginPass = document.getElementById("loginPass");
 const signupUser = document.getElementById("signupUser");
 const signupPass = document.getElementById("signupPass");
+const forgotUser = document.getElementById("forgotUser");
+const forgotPass = document.getElementById("forgotPass");
 
-const loginError = document.getElementById("loginError");
-const signupError = document.getElementById("signupError");
-
-const usersList = document.getElementById("usersList");
 const messages = document.getElementById("messages");
+const users = document.getElementById("users");
 const messageInput = document.getElementById("messageInput");
 const modeText = document.getElementById("mode");
+const typingText = document.getElementById("typing");
 
 // ================= STATE =================
 let currentUser = null;
-let currentMode = "group"; // group | private
+let mode = "group";
 let privateTo = null;
+let typingTimer;
 
-// ================= LOGIN =================
+// ================= AUTH =================
 function login() {
-  loginError.innerText = "";
-
-  const user = loginUser.value.trim();
-  const pass = loginPass.value.trim();
-
-  if (!user || !pass) {
-    loginError.innerText = "All fields required";
-    return;
-  }
-
-  socket.emit("login", { user, pass });
+  socket.emit("login", {
+    user: loginUser.value.trim(),
+    pass: loginPass.value.trim()
+  });
 }
 
-socket.on("login-success", ({ user, token }) => {
-  currentUser = user;
-
-  // store token (for future use if needed)
-  localStorage.setItem("token", token);
-
-  loginBox.style.display = "none";
-  signupBox.style.display = "none";
-  chatBox.style.display = "block";
-
-  modeText.innerText = "Group Chat";
-});
-
-socket.on("login-failed", (msg) => {
-  loginError.innerText = msg;
-});
-
-// ================= SIGNUP =================
 function signup() {
-  signupError.innerText = "";
-
-  const user = signupUser.value.trim();
-  const pass = signupPass.value.trim();
-
-  if (!user || !pass) {
-    signupError.innerText = "All fields required";
-    return;
-  }
-
-  socket.emit("signup", { user, pass });
+  socket.emit("signup", {
+    user: signupUser.value.trim(),
+    pass: signupPass.value.trim()
+  });
 }
 
-socket.on("signup-success", (msg) => {
-  alert(msg);
-  showLogin();
-});
-
-socket.on("signup-failed", (msg) => {
-  signupError.innerText = msg;
-});
-
-// ================= CHAT =================
-function sendMessage() {
-  const text = messageInput.value.trim();
-  if (!text) return;
-
-  if (currentMode === "group") {
-    socket.emit("group-message", text);
-  } else {
-    socket.emit("private-message", { to: privateTo, text });
-  }
-
-  messageInput.value = "";
+function resetPassword() {
+  socket.emit("forgot-password", {
+    user: forgotUser.value.trim(),
+    newPass: forgotPass.value.trim()
+  });
 }
 
-// Receive group messages
-socket.on("group-message", addMessage);
+// ================= UI SWITCH =================
+function showSignup() {
+  loginBox.classList.add("hidden");
+  signupBox.classList.remove("hidden");
+}
 
-// Receive private messages
-socket.on("private-message", addMessage);
+function showForgot() {
+  loginBox.classList.add("hidden");
+  forgotBox.classList.remove("hidden");
+}
 
-// Chat history (group)
-socket.on("chat-history", (history) => {
-  messages.innerHTML = "";
-  history.forEach(addMessage);
+function showLogin() {
+  signupBox.classList.add("hidden");
+  forgotBox.classList.add("hidden");
+  loginBox.classList.remove("hidden");
+}
+
+// ================= SOCKET RESPONSES =================
+socket.on("login-success", ({ user }) => {
+  currentUser = user;
+  loginBox.classList.add("hidden");
+  chatBox.classList.remove("hidden");
 });
 
-function addMessage(msg) {
-  const li = document.createElement("li");
-  li.textContent = `[${msg.time}] ${msg.from}: ${msg.text}`;
-  messages.appendChild(li);
-  messages.scrollTop = messages.scrollHeight;
-}
+socket.on("login-failed", alert);
+socket.on("signup-success", msg => { alert(msg); showLogin(); });
+socket.on("signup-failed", alert);
+socket.on("forgot-success", msg => { alert(msg); showLogin(); });
+socket.on("forgot-failed", alert);
 
 // ================= ONLINE USERS =================
-socket.on("online-users", (users) => {
-  usersList.innerHTML = "";
-
-  users.forEach((u) => {
-    if (u === currentUser) return;
-
-    const li = document.createElement("li");
-    li.textContent = u;
-    li.onclick = () => startPrivate(u);
-    usersList.appendChild(li);
+socket.on("online-users", list => {
+  users.innerHTML = "";
+  list.forEach(u => {
+    if (u !== currentUser) {
+      const li = document.createElement("li");
+      li.innerText = u;
+      li.onclick = () => startPrivate(u);
+      users.appendChild(li);
+    }
   });
 });
 
-// ================= MODES =================
-function startPrivate(user) {
-  currentMode = "private";
-  privateTo = user;
-  modeText.innerText = "Private chat with " + user;
+// ================= CHAT =================
+socket.on("chat-history", msgs => {
+  messages.innerHTML = "";
+  msgs.forEach(addMessage);
+});
+
+socket.on("receive-message", addMessage);
+
+function sendMessage() {
+  if (!messageInput.value.trim()) return;
+
+  socket.emit("send-message", {
+    text: messageInput.value,
+    mode,
+    to: privateTo
+  });
+
+  messageInput.value = "";
+  socket.emit("stop-typing");
+}
+
+// ================= MESSAGE UI (SEEN ✓✓) =================
+function addMessage(msg) {
+  const li = document.createElement("li");
+  li.id = msg._id;
+
+  let seen = "";
+  if (msg.from === currentUser) {
+    seen = msg.seenBy && msg.seenBy.length > 0 ? " ✓✓" : " ✓";
+  }
+
+  li.innerHTML = `
+    <b>${msg.from}</b>: <span>${msg.text}</span>${seen}
+    ${msg.from === currentUser ? `
+      <button onclick="editMsg('${msg._id}')">✏️</button>
+      <button onclick="deleteMsg('${msg._id}')">🗑️</button>
+    ` : ""}
+  `;
+
+  messages.appendChild(li);
+
+  if (msg.from !== currentUser) {
+    socket.emit("mark-seen", { mode, withUser: msg.from });
+  }
+}
+
+// ================= EDIT / DELETE =================
+function editMsg(id) {
+  const text = prompt("Edit message");
+  if (text) socket.emit("edit-message", { id, newText: text });
+}
+
+function deleteMsg(id) {
+  socket.emit("delete-message", id);
+}
+
+socket.on("message-edited", ({ id, newText }) => {
+  const el = document.getElementById(id);
+  if (el) el.querySelector("span").innerText = newText;
+});
+
+socket.on("message-deleted", id => {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+});
+
+// ================= PRIVATE CHAT =================
+function startPrivate(u) {
+  mode = "private";
+  privateTo = u;
+  modeText.innerText = "Private Chat → " + u;
   messages.innerHTML = "";
 }
 
 function backToGroup() {
-  currentMode = "group";
+  mode = "group";
   privateTo = null;
   modeText.innerText = "Group Chat";
   messages.innerHTML = "";
 }
 
-// ================= UI HELPERS =================
-function showSignup() {
-  loginBox.style.display = "none";
-  signupBox.style.display = "block";
-}
+// ================= TYPING =================
+messageInput.addEventListener("input", () => {
+  socket.emit("typing", { mode, to: privateTo });
 
-function showLogin() {
-  signupBox.style.display = "none";
-  loginBox.style.display = "block";
-}
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => {
+    socket.emit("stop-typing");
+  }, 800);
+});
 
+socket.on("show-typing", user => {
+  typingText.innerText = user + " is typing...";
+});
+
+socket.on("hide-typing", () => {
+  typingText.innerText = "";
+});
+
+// ================= LOGOUT =================
 function logout() {
-  localStorage.removeItem("token");
   location.reload();
 }

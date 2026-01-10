@@ -3,176 +3,163 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const path = require("path");
-const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ================= BASIC CHECK =================
-if (!process.env.JWT_SECRET) {
-  console.error("❌ JWT_SECRET missing in .env");
-  process.exit(1);
-}
-
-// ================= MIDDLEWARE =================
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// ================= MONGODB =================
-mongoose
-  .connect(process.env.MONGO_URI)
+const PORT = process.env.PORT || 3000;
+const MONGO_URI = process.env.MONGO_URI;
+
+// ================== MONGODB ==================
+mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => {
-    console.error("❌ MongoDB error:", err);
-    process.exit(1);
-  });
+  .catch(err => console.error("❌ MongoDB error:", err.message));
 
-// ================= MODELS =================
-const User = mongoose.model(
-  "User",
-  new mongoose.Schema({
-    username: { type: String, unique: true },
-    password: String,
-  })
-);
+// ================== SCHEMAS ==================
+const UserSchema = new mongoose.Schema({
+  username: { type: String, unique: true },
+  password: String
+});
 
-const Message = mongoose.model(
-  "Message",
-  new mongoose.Schema({
-    from: String,
-    to: String, // null = group
-    text: String,
-    time: String,
-  })
-);
+const MessageSchema = new mongoose.Schema({
+  from: String,
+  to: { type: String, default: null }, // null = group
+  text: String,
+  seenBy: { type: [String], default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
 
-// ================= ONLINE USERS =================
-const onlineUsers = new Map(); // socket.id -> username
+const User = mongoose.model("User", UserSchema);
+const Message = mongoose.model("Message", MessageSchema);
 
-// ================= SOCKET =================
+// ================== ONLINE USERS ==================
+const onlineUsers = {}; // username -> socket.id
+
+// ================== SOCKET ==================
 io.on("connection", (socket) => {
-  console.log("🔌 Socket connected:", socket.id);
-
-  // ---------- SIGNUP ----------
-  socket.on("signup", async ({ user, pass }) => {
-    try {
-      if (!user || !pass) {
-        socket.emit("signup-failed", "All fields required");
-        return;
-      }
-
-      const exists = await User.findOne({ username: user });
-      if (exists) {
-        socket.emit("signup-failed", "Username already exists");
-        return;
-      }
-
-      const hashed = await bcrypt.hash(pass, 10);
-      await User.create({ username: user, password: hashed });
-
-      socket.emit("signup-success", "Signup successful. Please login.");
-      console.log("🆕 User created:", user);
-    } catch (err) {
-      console.error("❌ Signup error:", err);
-      socket.emit("signup-failed", "Signup failed");
-    }
-  });
+  console.log("🟢 Connected:", socket.id);
 
   // ---------- LOGIN ----------
   socket.on("login", async ({ user, pass }) => {
-    try {
-      if (!user || !pass) {
-        socket.emit("login-failed", "All fields required");
-        return;
-      }
+    const found = await User.findOne({ username: user });
+    if (!found) return socket.emit("login-failed", "User not found");
 
-      const foundUser = await User.findOne({ username: user });
-      if (!foundUser) {
-        socket.emit("login-failed", "User not found");
-        return;
-      }
+    const ok = await bcrypt.compare(pass, found.password);
+    if (!ok) return socket.emit("login-failed", "Wrong password");
 
-      const match = await bcrypt.compare(pass, foundUser.password);
-      if (!match) {
-        socket.emit("login-failed", "Wrong password");
-        return;
-      }
+    socket.username = user;
+    onlineUsers[user] = socket.id;
 
-      const token = jwt.sign(
-        { username: user },
-        process.env.JWT_SECRET,
-        { expiresIn: "1h" }
-      );
+    socket.emit("login-success", { user });
+    io.emit("online-users", Object.keys(onlineUsers));
 
-      socket.username = user;
-      onlineUsers.set(socket.id, user);
-
-      socket.emit("login-success", { user, token });
-      io.emit("online-users", Array.from(onlineUsers.values()));
-
-      const history = await Message.find({ to: null }).sort({ _id: 1 });
-      socket.emit("chat-history", history);
-
-      console.log("✅ Login success:", user);
-    } catch (err) {
-      console.error("❌ Login error:", err);
-      socket.emit("login-failed", "Server error");
-    }
+    const history = await Message.find().sort({ createdAt: 1 }).limit(100);
+    socket.emit("chat-history", history);
   });
 
-  // ---------- GROUP CHAT ----------
-  socket.on("group-message", async (text) => {
+  // ---------- SIGNUP ----------
+  socket.on("signup", async ({ user, pass }) => {
+    const exists = await User.findOne({ username: user });
+    if (exists) return socket.emit("signup-failed", "User already exists");
+
+    const hash = await bcrypt.hash(pass, 10);
+    await User.create({ username: user, password: hash });
+
+    socket.emit("signup-success", "Signup successful");
+  });
+
+  // ---------- FORGOT PASSWORD ----------
+  socket.on("forgot-password", async ({ user, newPass }) => {
+    const found = await User.findOne({ username: user });
+    if (!found) return socket.emit("forgot-failed", "User not found");
+
+    const hash = await bcrypt.hash(newPass, 10);
+    found.password = hash;
+    await found.save();
+
+    socket.emit("forgot-success", "Password updated");
+  });
+
+  // ---------- SEND MESSAGE ----------
+  socket.on("send-message", async ({ text, mode, to }) => {
     if (!socket.username || !text) return;
 
-    const msg = new Message({
+    const msg = await Message.create({
       from: socket.username,
-      to: null,
+      to: mode === "private" ? to : null,
       text,
-      time: new Date().toLocaleTimeString(),
+      seenBy: [socket.username]
     });
 
-    await msg.save();
-    io.emit("group-message", msg);
+    if (mode === "private" && onlineUsers[to]) {
+      socket.to(onlineUsers[to]).emit("receive-message", msg);
+      socket.emit("receive-message", msg);
+    } else {
+      io.emit("receive-message", msg);
+    }
   });
 
-  // ---------- PRIVATE CHAT ----------
-  socket.on("private-message", async ({ to, text }) => {
-    if (!socket.username || !to || !text) return;
+  // ---------- SEEN ----------
+  socket.on("seen", async (id) => {
+    const msg = await Message.findById(id);
+    if (!msg || msg.seenBy.includes(socket.username)) return;
 
-    const msg = new Message({
-      from: socket.username,
-      to,
-      text,
-      time: new Date().toLocaleTimeString(),
-    });
-
+    msg.seenBy.push(socket.username);
     await msg.save();
 
-    for (const [id, name] of onlineUsers.entries()) {
-      if (name === to) {
-        io.to(id).emit("private-message", msg);
-      }
-    }
+    io.emit("message-seen", { id, seenBy: msg.seenBy });
+  });
 
-    socket.emit("private-message", msg);
+  // ---------- EDIT ----------
+  socket.on("edit-message", async ({ id, newText }) => {
+    const msg = await Message.findById(id);
+    if (!msg || msg.from !== socket.username) return;
+
+    msg.text = newText;
+    await msg.save();
+
+    io.emit("message-edited", { id, newText });
+  });
+
+  // ---------- DELETE ----------
+  socket.on("delete-message", async (id) => {
+    const msg = await Message.findById(id);
+    if (!msg || msg.from !== socket.username) return;
+
+    await Message.deleteOne({ _id: id });
+    io.emit("message-deleted", id);
+  });
+
+  // ---------- TYPING ----------
+  socket.on("typing", ({ mode, to }) => {
+    if (mode === "private" && to && onlineUsers[to]) {
+      socket.to(onlineUsers[to]).emit("show-typing", socket.username);
+    } else {
+      socket.broadcast.emit("show-typing", socket.username);
+    }
+  });
+
+  socket.on("stop-typing", () => {
+    socket.broadcast.emit("hide-typing");
   });
 
   // ---------- DISCONNECT ----------
   socket.on("disconnect", () => {
     if (socket.username) {
-      onlineUsers.delete(socket.id);
-      io.emit("online-users", Array.from(onlineUsers.values()));
-      console.log("❌ Disconnected:", socket.username);
+      delete onlineUsers[socket.username];
+      io.emit("online-users", Object.keys(onlineUsers));
     }
   });
 });
 
-// ================= START =================
-const PORT = process.env.PORT || 3000;
+// ================== START ==================
 server.listen(PORT, "0.0.0.0", () => {
   console.log("🚀 Server running on port", PORT);
 });
