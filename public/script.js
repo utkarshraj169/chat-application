@@ -1,60 +1,40 @@
 const socket = io();
 
-// ================= DOM =================
+let currentUser = null;
+let mode = "group";
+let privateTo = null;
+
+/* ===== ELEMENTS ===== */
+const loginUser = document.getElementById("loginUser");
+const loginPass = document.getElementById("loginPass");
+
+const signupUser = document.getElementById("signupUser");
+const signupPass = document.getElementById("signupPass");
+
+const forgotUser = document.getElementById("forgotUser");
+const forgotPass = document.getElementById("forgotPass");
+
 const loginBox = document.getElementById("loginBox");
 const signupBox = document.getElementById("signupBox");
 const forgotBox = document.getElementById("forgotBox");
 const chatBox = document.getElementById("chatBox");
 
-const loginUser = document.getElementById("loginUser");
-const loginPass = document.getElementById("loginPass");
-const signupUser = document.getElementById("signupUser");
-const signupPass = document.getElementById("signupPass");
-const forgotUser = document.getElementById("forgotUser");
-const forgotPass = document.getElementById("forgotPass");
-
 const messages = document.getElementById("messages");
-const users = document.getElementById("users");
 const messageInput = document.getElementById("messageInput");
-const modeText = document.getElementById("mode");
-const typingText = document.getElementById("typing");
+const typingEl = document.getElementById("typing");
+const userList = document.getElementById("userList");
 
-// ================= STATE =================
-let currentUser = null;
-let mode = "group";
-let privateTo = null;
-let typingTimer;
+/* ===== PAGE SWITCH ===== */
 
-// ================= AUTH =================
-function login() {
-  socket.emit("login", {
-    user: loginUser.value.trim(),
-    pass: loginPass.value.trim()
-  });
-}
-
-function signup() {
-  socket.emit("signup", {
-    user: signupUser.value.trim(),
-    pass: signupPass.value.trim()
-  });
-}
-
-function resetPassword() {
-  socket.emit("forgot-password", {
-    user: forgotUser.value.trim(),
-    newPass: forgotPass.value.trim()
-  });
-}
-
-// ================= UI SWITCH =================
 function showSignup() {
   loginBox.classList.add("hidden");
+  forgotBox.classList.add("hidden");
   signupBox.classList.remove("hidden");
 }
 
 function showForgot() {
   loginBox.classList.add("hidden");
+  signupBox.classList.add("hidden");
   forgotBox.classList.remove("hidden");
 }
 
@@ -64,132 +44,337 @@ function showLogin() {
   loginBox.classList.remove("hidden");
 }
 
-// ================= SOCKET RESPONSES =================
-socket.on("login-success", ({ user }) => {
+function logout() {
+  location.reload();
+}
+
+function backToGroup() {
+  mode = "group";
+  privateTo = null;
+
+  document.getElementById("mode").innerText = "Group Chat";
+  messages.innerHTML = "";
+}
+
+/* ===== LOGIN ===== */
+
+function login() {
+  socket.emit("login", {
+    user: loginUser.value.trim(),
+    pass: loginPass.value.trim()
+  });
+}
+
+/* ===== SIGNUP ===== */
+
+function signup() {
+  socket.emit("signup", {
+    user: signupUser.value.trim(),
+    pass: signupPass.value.trim()
+  });
+}
+
+/* ===== RESET PASSWORD ===== */
+
+function resetPassword() {
+  socket.emit("forgot-password", {
+    user: forgotUser.value.trim(),
+    newPass: forgotPass.value.trim()
+  });
+}
+
+/* ===== LOGIN EVENTS ===== */
+
+socket.on("login-success", user => {
   currentUser = user;
+
   loginBox.classList.add("hidden");
+  signupBox.classList.add("hidden");
+  forgotBox.classList.add("hidden");
+
   chatBox.classList.remove("hidden");
 });
 
-socket.on("login-failed", alert);
-socket.on("signup-success", msg => { alert(msg); showLogin(); });
-socket.on("signup-failed", alert);
-socket.on("forgot-success", msg => { alert(msg); showLogin(); });
-socket.on("forgot-failed", alert);
+socket.on("login-failed", msg => {
+  alert(msg);
+});
 
-// ================= ONLINE USERS =================
-socket.on("online-users", list => {
-  users.innerHTML = "";
-  list.forEach(u => {
-    if (u !== currentUser) {
-      const li = document.createElement("li");
-      li.innerText = u;
-      li.onclick = () => startPrivate(u);
-      users.appendChild(li);
-    }
+/* ===== SIGNUP EVENTS ===== */
+
+socket.on("signup-success", msg => {
+  alert(msg);
+
+  signupUser.value = "";
+  signupPass.value = "";
+
+  showLogin();
+});
+
+socket.on("signup-failed", msg => {
+  alert(msg);
+});
+
+/* ===== FORGOT EVENTS ===== */
+
+socket.on("forgot-success", msg => {
+  alert(msg);
+
+  forgotUser.value = "";
+  forgotPass.value = "";
+
+  showLogin();
+});
+
+socket.on("forgot-failed", msg => {
+  alert(msg);
+});
+
+/* ===== ONLINE USERS ===== */
+
+socket.on("online-users", users => {
+  if (!userList) return;
+
+  userList.innerHTML = "";
+
+  users.forEach(user => {
+    if (user === currentUser) return;
+
+    const li = document.createElement("li");
+    li.textContent = user;
+
+    li.onclick = () => {
+      mode = "private";
+      privateTo = user;
+
+      document.getElementById("mode").innerText =
+        "Private Chat : " + user;
+
+      messages.innerHTML = "";
+    };
+
+    userList.appendChild(li);
   });
 });
 
-// ================= CHAT =================
+/* ===== CHAT HISTORY ===== */
+
 socket.on("chat-history", msgs => {
   messages.innerHTML = "";
-  msgs.forEach(addMessage);
+
+  msgs.forEach(msg => {
+    addMessage(msg);
+  });
 });
 
-socket.on("receive-message", addMessage);
+/* ===== RECEIVE MESSAGE ===== */
+
+socket.on("receive-message", msg => {
+  addMessage(msg);
+});
+socket.on("message-seen", ({ id, seenBy }) => {
+
+  const li = document.getElementById(id);
+
+  if (!li) return;
+
+  const small = li.querySelector(".seen");
+
+  if (!small) return;
+
+  small.innerText =
+    seenBy.length > 1
+      ? "✓✓ Seen"
+      : "✓ Sent";
+
+});
+
+
+socket.on("message-edited", ({ id, newText }) => {
+  const li = document.getElementById(id);
+
+  if (!li) return;
+
+  const textEl = li.querySelector(".text");
+
+  if (textEl) {
+    textEl.innerText = newText;
+  }
+});
+
+socket.on("message-deleted", id => {
+  const li = document.getElementById(id);
+
+  if (li) {
+    li.remove();
+  }
+});
+
+socket.on("message-reacted", ({ id, reactions }) => {
+
+  const div = document.getElementById(
+    "react-" + id
+  );
+
+  if (!div) return;
+
+  div.innerHTML =
+    Object.values(reactions).join(" ");
+
+});
+
+/* ===== SEND MESSAGE ===== */
 
 function sendMessage() {
-  if (!messageInput.value.trim()) return;
+  const text = messageInput.value.trim();
+
+  if (!text) return;
 
   socket.emit("send-message", {
-    text: messageInput.value,
+    text,
     mode,
     to: privateTo
   });
 
   messageInput.value = "";
-  socket.emit("stop-typing");
 }
 
-// ================= MESSAGE UI (SEEN ✓✓) =================
+/* ===== ADD MESSAGE ===== */
+
 function addMessage(msg) {
   const li = document.createElement("li");
+
   li.id = msg._id;
 
-  let seen = "";
-  if (msg.from === currentUser) {
-    seen = msg.seenBy && msg.seenBy.length > 0 ? " ✓✓" : " ✓";
-  }
+  li.className =
+    msg.from === currentUser ? "me" : "other";
 
   li.innerHTML = `
-    <b>${msg.from}</b>: <span>${msg.text}</span>${seen}
-    ${msg.from === currentUser ? `
-      <button onclick="editMsg('${msg._id}')">✏️</button>
-      <button onclick="deleteMsg('${msg._id}')">🗑️</button>
-    ` : ""}
-  `;
+  <b>${msg.from}</b>
+  <span class="text">${msg.text}</span>
+
+  <br>
+
+  <small class="time">
+  ${new Date(msg.createdAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  })}
+</small>
+
+  <small class="seen">
+    ${
+      msg.seenBy &&
+      msg.seenBy.length > 1
+        ? "✓✓ Seen"
+        : "✓ Sent"
+    }
+  </small>
+
+  ${
+    msg.from === currentUser
+      ? `
+        <button onclick="editMsg('${msg._id}')">✏️</button>
+        <button onclick="deleteMsg('${msg._id}')">🗑️</button>
+        <div class="reaction-bar">
+  <span onclick="reactMsg('${msg._id}','❤️')">❤️</span>
+  <span onclick="reactMsg('${msg._id}','😂')">😂</span>
+  <span onclick="reactMsg('${msg._id}','👍')">👍</span>
+</div>
+
+<div class="reactions" id="react-${msg._id}">
+  ${
+    msg.reactions
+      ? Object.values(msg.reactions).join(" ")
+      : ""
+  }
+</div>
+      `
+      : ""
+  }
+`;
 
   messages.appendChild(li);
+  messages.scrollTop = messages.scrollHeight;
 
-  if (msg.from !== currentUser) {
-    socket.emit("mark-seen", { mode, withUser: msg.from });
-  }
+
+socket.emit("seen", msg._id);
 }
 
-// ================= EDIT / DELETE =================
 function editMsg(id) {
-  const text = prompt("Edit message");
-  if (text) socket.emit("edit-message", { id, newText: text });
+  const newText = prompt("Edit message");
+
+  if (!newText) return;
+
+  socket.emit("edit-message", {
+    id,
+    newText
+  });
 }
 
 function deleteMsg(id) {
   socket.emit("delete-message", id);
 }
 
-socket.on("message-edited", ({ id, newText }) => {
-  const el = document.getElementById(id);
-  if (el) el.querySelector("span").innerText = newText;
-});
+/* ===== REACTION ===== */
 
-socket.on("message-deleted", id => {
-  const el = document.getElementById(id);
-  if (el) el.remove();
-});
+function reactMsg(id, reaction) {
 
-// ================= PRIVATE CHAT =================
-function startPrivate(u) {
-  mode = "private";
-  privateTo = u;
-  modeText.innerText = "Private Chat → " + u;
-  messages.innerHTML = "";
+  socket.emit("react-message", {
+    id,
+    reaction
+  });
+
+}
+/* ===== TYPING ===== */
+
+function typing() {
+  socket.emit("typing", {
+    mode,
+    to: privateTo
+  });
 }
 
-function backToGroup() {
-  mode = "group";
-  privateTo = null;
-  modeText.innerText = "Group Chat";
-  messages.innerHTML = "";
+function stopTyping() {
+  socket.emit("stop-typing");
 }
-
-// ================= TYPING =================
-messageInput.addEventListener("input", () => {
-  socket.emit("typing", { mode, to: privateTo });
-
-  clearTimeout(typingTimer);
-  typingTimer = setTimeout(() => {
-    socket.emit("stop-typing");
-  }, 800);
-});
 
 socket.on("show-typing", user => {
-  typingText.innerText = user + " is typing...";
+  typingEl.innerText = user + " is typing...";
+  typingEl.classList.remove("hidden");
 });
 
 socket.on("hide-typing", () => {
-  typingText.innerText = "";
+  typingEl.classList.add("hidden");
 });
 
-// ================= LOGOUT =================
-function logout() {
-  location.reload();
+function editMsg(id) {
+  const newText = prompt("Edit message");
+
+  if (!newText) return;
+
+  socket.emit("edit-message", {
+    id,
+    newText
+  });
 }
+
+function deleteMsg(id) {
+  socket.emit("delete-message", id);
+}
+
+/* ===== MAKE FUNCTIONS GLOBAL ===== */
+
+window.login = login;
+window.signup = signup;
+window.showSignup = showSignup;
+window.showForgot = showForgot;
+window.showLogin = showLogin;
+window.resetPassword = resetPassword;
+window.sendMessage = sendMessage;
+window.logout = logout;
+window.backToGroup = backToGroup;
+window.typing = typing;
+window.stopTyping = stopTyping;
+window.editMsg = editMsg;
+window.deleteMsg = deleteMsg;
+window.reactMsg = reactMsg;

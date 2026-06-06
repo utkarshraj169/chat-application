@@ -1,80 +1,237 @@
-body {
+/* ===== RESET ===== */
+* {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #ece5dd;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+body {
+  background: #e5ddd5;
+  height: 100vh;
+}
+
+/* ===== CARDS (LOGIN / SIGNUP / FORGOT) ===== */
 .card {
-  width: 90%;
-  max-width: 900px;
-  margin: 20px auto;
   background: white;
-  padding: 15px;
-  border-radius: 10px;
+  max-width: 360px;
+  margin: 60px auto;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.1);
+}
+
+.card h2 {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.card input {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.card button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background: #25D366;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+}
+
+.card button.secondary {
+  background: #eee;
+  color: #333;
 }
 
 .hidden {
   display: none;
 }
 
-.chat-container {
-  display: flex;
-  height: 500px;
-  border: 1px solid #ccc;
+.error {
+  color: red;
+  margin-top: 8px;
+  text-align: center;
 }
 
+/* ===== CHAT ===== */
+#chatBox {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== TOP BAR ===== */
+.top-bar {
+  background: #075E54;
+  color: white;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.top-bar h3 {
+  font-size: 16px;
+}
+
+.top-bar button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 14px;
+}
+
+/* ===== CHAT AREA ===== */
+.chat-container {
+  flex: 1;
+  display: flex;
+  background: #e5ddd5;
+}
+
+/* ===== USERS (HIDDEN ON MOBILE) ===== */
 .sidebar {
   width: 200px;
-  background: #f5f5f5;
+  background: #f0f0f0;
   padding: 10px;
   overflow-y: auto;
 }
 
-#users {
-  list-style: none;
-  padding: 0;
+.sidebar h4 {
+  margin-bottom: 8px;
 }
 
-#users li {
-  padding: 6px;
+.sidebar li {
+  padding: 8px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
+.sidebar li:hover {
+  background: #ddd;
+}
+
+/* ===== MESSAGES ===== */
 .chat-area {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #e5ddd5;
 }
 
 #messages {
   flex: 1;
+  padding: 12px;
   list-style: none;
-  padding: 10px;
-  margin: 0;
   overflow-y: auto;
 }
 
 #messages li {
-  margin-bottom: 6px;
-  padding: 6px 10px;
-  background: white;
-  border-radius: 6px;
-  max-width: 70%;
+  max-width: 75%;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  position: relative;
+  font-size: 14px;
 }
 
+/* Sent */
+.me {
+  background: #dcf8c6;
+  align-self: flex-end;
+}
+
+/* Received */
+.other {
+  background: white;
+  align-self: flex-start;
+}
+
+/* Seen ticks */
+.seen {
+  font-size: 11px;
+  text-align: right;
+  opacity: .6;
+}
+
+/* ===== TYPING ===== */
+#typing {
+  font-size: 12px;
+  padding: 6px 12px;
+  color: #555;
+}
+
+/* ===== INPUT ===== */
 .input-area {
   display: flex;
   padding: 10px;
   background: #f0f0f0;
 }
 
-#messageInput {
+.input-area input {
   flex: 1;
-  padding: 8px;
+  padding: 12px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
 }
 
-button {
-  padding: 8px 12px;
-  margin-left: 5px;
+.input-area button {
+  margin-left: 8px;
+  padding: 0 18px;
+  border-radius: 50%;
+  border: none;
+  background: #25D366;
+  color: white;
+  font-size: 18px;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+
+  .card {
+    margin: 30px 12px;
+  }
+}
+.reaction-bar span {
+  cursor: pointer;
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+.reactions span {
+  background: #eee;
+  padding: 2px 6px;
+  border-radius: 12px;
+  margin-right: 4px;
+  font-size: 12px;
+}
+.msg-actions {
+  margin-top: 4px;
+  text-align: right;
+}
+
+.msg-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 6px;
+}
+
+.time {
+  font-size: 11px;
+  color: gray;
+}
+
+.seen {
+  font-size: 11px;
+  color: #666;
 }

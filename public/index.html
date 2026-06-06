@@ -1,38 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Chat Application</title>
+  <title>Chat App</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <!-- LOGIN -->
 <div id="loginBox" class="card">
-  <h2>Login</h2>
+  <h2>Chat App</h2>
+
   <input id="loginUser" placeholder="Username">
   <input id="loginPass" type="password" placeholder="Password">
 
   <button onclick="login()">Login</button>
   <button onclick="showSignup()">Signup</button>
   <button onclick="showForgot()">Forgot Password</button>
-
-  <p id="loginError" class="error"></p>
 </div>
 
 <!-- SIGNUP -->
 <div id="signupBox" class="card hidden">
-  <h2>Signup</h2>
+  <h2>Create Account</h2>
+
   <input id="signupUser" placeholder="Username">
   <input id="signupPass" type="password" placeholder="Password">
 
-  <button onclick="signup()">Create Account</button>
+  <button onclick="signup()">Create</button>
   <button onclick="showLogin()">Back</button>
 </div>
 
-<!-- FORGOT PASSWORD -->
+<!-- FORGOT -->
 <div id="forgotBox" class="card hidden">
   <h2>Reset Password</h2>
+
   <input id="forgotUser" placeholder="Username">
   <input id="forgotPass" type="password" placeholder="New Password">
 
@@ -41,37 +41,50 @@
 </div>
 
 <!-- CHAT -->
-<div id="chatBox" class="chat hidden">
+<div id="chatBox" class="hidden">
 
   <div class="top-bar">
-    <span id="mode">Group Chat</span>
-    <button onclick="backToGroup()">Group</button>
-    <button onclick="logout()">Logout</button>
+    <h3 id="mode">Group Chat</h3>
+
+    <div>
+      <button onclick="backToGroup()">Group</button>
+      <button onclick="logout()">Logout</button>
+    </div>
   </div>
 
-  <div class="container">
+  <div class="chat-container">
+
+    <!-- USERS -->
     <div class="sidebar">
       <h4>Online Users</h4>
-      <ul id="users"></ul>
+      <ul id="userList"></ul>
     </div>
 
+    <!-- CHAT AREA -->
     <div class="chat-area">
-      <div id="messages"></div>
-      <div id="typing" class="typing"></div>
+
+      <p id="typing" class="typing hidden"></p>
+
+      <ul id="messages"></ul>
 
       <div class="input-area">
-        <input id="messageInput"
-               placeholder="Type a message"
-               oninput="typing()"
-               onblur="stopTyping()">
-        <button onclick="sendMessage()">Send</button>
+        <input
+          id="messageInput"
+          placeholder="Type message"
+          oninput="typing()"
+          onblur="stopTyping()">
+
+        <button onclick="sendMessage()">➤</button>
       </div>
+
     </div>
+
   </div>
 
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="script.js"></script>
+
 </body>
 </html>
